@@ -1,0 +1,638 @@
+// =============================================================================
+// Prisma Schema — Rupak Ghosh Research Portfolio
+// Database: PostgreSQL (Neon / Supabase)
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum PublishStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ExperienceCategory {
+  RESEARCH
+  INDUSTRY
+  TEACHING
+  VOLUNTEER
+  LEADERSHIP
+  INTERNSHIP
+  OTHER
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  FELLOWSHIP
+  VOLUNTEER
+  RESEARCH_ASSISTANT
+  TEACHING_ASSISTANT
+  INDEPENDENT
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum OutputType {
+  JOURNAL_ARTICLE
+  CONFERENCE_PAPER
+  PREPRINT
+  THESIS
+  POSTER
+  TECHNICAL_REPORT
+  BOOK_CHAPTER
+  PATENT
+  DATASET
+  SOFTWARE
+  PRESENTATION
+  OTHER
+}
+
+enum MediaType {
+  IMAGE
+  PDF
+  VIDEO
+  DIAGRAM
+  POSTER
+  RESUME
+  PRESENTATION
+  SCREENSHOT
+  OTHER
+}
+
+enum InstitutionType {
+  UNIVERSITY
+  RESEARCH_LAB
+  COMPANY
+  NONPROFIT
+  GOVERNMENT
+  STARTUP
+  OTHER
+}
+
+enum CollaboratorVisibility {
+  PUBLIC
+  PRIVATE
+  ON_REQUEST
+}
+
+enum UpdateMilestone {
+  STARTED
+  IN_PROGRESS
+  MILESTONE
+  COMPLETED
+  PUBLISHED
+  PRESENTED
+  OTHER
+}
+
+// =============================================================================
+// AUTH MODELS (NextAuth v5 / Prisma Adapter)
+// =============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("admin")
+  passwordHash  String?
+  accounts      Account[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// =============================================================================
+// CORE PORTFOLIO ENTITIES
+// =============================================================================
+
+// --- Person (site owner profile) ---
+model Person {
+  id                String   @id @default(cuid())
+  fullName          String
+  professionalTitle String
+  shortBio          String?
+  longBio           String?
+  location          String?
+  email             String?
+  linkedinUrl       String?
+  githubUrl         String?
+  websiteUrl        String?
+  resumeUrl         String?
+  profileImageUrl   String?
+  availabilityStatus String?
+  researchStatement String?
+  lastUpdated       DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- Institution ---
+model Institution {
+  id              String          @id @default(cuid())
+  name            String
+  shortName       String?
+  location        String?
+  type            InstitutionType @default(OTHER)
+  website         String?
+  logoUrl         String?
+  description     String?
+
+  experiences     Experience[]
+  education       Education[]
+  collaborators   Collaborator[]
+  projectInstitutions ProjectInstitution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+// --- Experience (Research / Employment positions) ---
+model Experience {
+  id              String             @id @default(cuid())
+  roleTitle       String
+  institutionId   String?
+  employmentType  EmploymentType     @default(RESEARCH_ASSISTANT)
+  category        ExperienceCategory @default(RESEARCH)
+  startDate       DateTime
+  endDate         DateTime?
+  isCurrent       Boolean            @default(false)
+  location        String?
+  summary         String?
+  longDescription String?
+  responsibilities String[]
+  outcomes        String[]
+  supervisor      String?
+  displayPriority Int                @default(0)
+  status          PublishStatus      @default(DRAFT)
+  seoTitle        String?
+  seoDescription  String?
+
+  institution          Institution?              @relation(fields: [institutionId], references: [id])
+  experienceMethods    ExperienceMethod[]
+  experienceCollaborators ExperienceCollaborator[]
+  projectExperiences   ProjectExperience[]
+  outputs              Output[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+  authorId    String?
+
+  @@index([institutionId])
+  @@index([category])
+  @@index([status])
+  @@index([startDate])
+}
+
+// --- Education ---
+model Education {
+  id                  String    @id @default(cuid())
+  institutionId       String?
+  degree              String
+  major               String
+  minors              String[]
+  program             String?
+  startDate           DateTime
+  endDate             DateTime?
+  expectedGradDate    DateTime?
+  showGpa             Boolean   @default(false)
+  gpa                 Float?
+  description         String?
+  selectedCoursework  String[]
+  honors              String[]
+  displayPriority     Int       @default(0)
+  status              PublishStatus @default(PUBLISHED)
+
+  institution Institution? @relation(fields: [institutionId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([institutionId])
+}
+
+// --- Project ---
+model Project {
+  id               String        @id @default(cuid())
+  title            String
+  slug             String        @unique
+  subtitle         String?
+  summary          String?
+  fullDescription  String?
+  problemStatement String?
+  researchQuestion String?
+  role             String?
+  startDate        DateTime?
+  endDate          DateTime?
+  projectStatus    ProjectStatus @default(ACTIVE)
+  discipline       String?
+  featured         Boolean       @default(false)
+  repositoryUrl    String?
+  demoUrl          String?
+  posterUrl        String?
+  publicationUrl   String?
+  heroImageUrl     String?
+  results          String?
+  limitations      String?
+  futureWork       String?
+  citations        String[]
+  technologies     String[]
+  displayPriority  Int           @default(0)
+  status           PublishStatus @default(DRAFT)
+  seoTitle         String?
+  seoDescription   String?
+  seoImageUrl      String?
+
+  projectMethods      ProjectMethod[]
+  projectExperiences  ProjectExperience[]
+  projectCollaborators ProjectCollaborator[]
+  projectInstitutions ProjectInstitution[]
+  projectUpdates      ProjectUpdate[]
+  projectOutputs      ProjectOutput[]
+  researchInterestProjects ResearchInterestProject[]
+  mediaAssets         MediaAsset[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+  authorId    String?
+
+  @@index([slug])
+  @@index([status])
+  @@index([featured])
+  @@index([projectStatus])
+  @@index([discipline])
+}
+
+// --- Project Update (progress notes / milestones) ---
+model ProjectUpdate {
+  id        String          @id @default(cuid())
+  projectId String
+  date      DateTime        @default(now())
+  title     String
+  summary   String
+  milestone UpdateMilestone @default(IN_PROGRESS)
+  updateStatus String?
+  isPublic  Boolean         @default(true)
+
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mediaAssets MediaAsset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([date])
+}
+
+// --- Method / Technique ---
+model Method {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  category    String?
+  description String?
+  notes       String?
+  displayOrder Int    @default(0)
+
+  projectMethods     ProjectMethod[]
+  experienceMethods  ExperienceMethod[]
+  researchInterestMethods ResearchInterestMethod[]
+  mediaAssets        MediaAsset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([category])
+}
+
+// --- Research Interest ---
+model ResearchInterest {
+  id               String  @id @default(cuid())
+  name             String
+  description      String?
+  currentQuestions String[]
+  parentId         String?
+  displayOrder     Int     @default(0)
+  status           PublishStatus @default(PUBLISHED)
+
+  parent                   ResearchInterest?  @relation("InterestHierarchy", fields: [parentId], references: [id])
+  children                 ResearchInterest[] @relation("InterestHierarchy")
+  researchInterestMethods  ResearchInterestMethod[]
+  researchInterestProjects ResearchInterestProject[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+}
+
+// --- Output (Publications, Posters, Reports, etc.) ---
+model Output {
+  id           String     @id @default(cuid())
+  title        String
+  type         OutputType @default(JOURNAL_ARTICLE)
+  date         DateTime?
+  authors      String[]
+  abstract     String?
+  citation     String?
+  doi          String?
+  fileUrl      String?
+  externalUrl  String?
+  featured     Boolean    @default(false)
+  institutionId String?
+  experienceId String?
+  status       PublishStatus @default(PUBLISHED)
+  seoTitle     String?
+  seoDescription String?
+
+  experience   Experience? @relation(fields: [experienceId], references: [id])
+  projectOutputs ProjectOutput[]
+  mediaAssets  MediaAsset[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+
+  @@index([type])
+  @@index([status])
+  @@index([featured])
+  @@index([date])
+}
+
+// --- Collaborator ---
+model Collaborator {
+  id            String                 @id @default(cuid())
+  name          String
+  role          String?
+  institutionId String?
+  website       String?
+  visibility    CollaboratorVisibility @default(PUBLIC)
+
+  institution              Institution?              @relation(fields: [institutionId], references: [id])
+  experienceCollaborators  ExperienceCollaborator[]
+  projectCollaborators     ProjectCollaborator[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([institutionId])
+}
+
+// --- Media Asset ---
+model MediaAsset {
+  id           String     @id @default(cuid())
+  type         MediaType  @default(IMAGE)
+  url          String
+  altText      String?
+  caption      String?
+  credit       String?
+  width        Int?
+  height       Int?
+  fileSize     Int?
+  mimeType     String?
+  originalName String?
+  displayOrder Int        @default(0)
+  isPublished  Boolean    @default(false)
+
+  projectId       String?
+  projectUpdateId String?
+  methodId        String?
+  outputId        String?
+
+  project       Project?       @relation(fields: [projectId], references: [id])
+  projectUpdate ProjectUpdate? @relation(fields: [projectUpdateId], references: [id])
+  method        Method?        @relation(fields: [methodId], references: [id])
+  output        Output?        @relation(fields: [outputId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([projectId])
+}
+
+// --- Contact Submission ---
+model ContactSubmission {
+  id               String   @id @default(cuid())
+  name             String
+  email            String
+  organization     String?
+  reason           String
+  message          String
+  projectReference String?
+  ipAddress        String?
+  userAgent        String?
+  isSpam           Boolean  @default(false)
+  isRead           Boolean  @default(false)
+  isArchived       Boolean  @default(false)
+  honeypot         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([isRead])
+}
+
+// --- Audit Log ---
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ipAddress  String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+// --- External Link ---
+model ExternalLink {
+  id          String  @id @default(cuid())
+  label       String
+  url         String
+  description String?
+  category    String?
+  displayOrder Int    @default(0)
+  isPublished  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// JOIN TABLES (Many-to-Many relationships)
+// =============================================================================
+
+model ProjectMethod {
+  projectId String
+  methodId  String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  method  Method  @relation(fields: [methodId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, methodId])
+  @@index([methodId])
+}
+
+model ProjectExperience {
+  projectId    String
+  experienceId String
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, experienceId])
+  @@index([experienceId])
+}
+
+model ProjectCollaborator {
+  projectId      String
+  collaboratorId String
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  collaborator Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, collaboratorId])
+  @@index([collaboratorId])
+}
+
+model ProjectInstitution {
+  projectId     String
+  institutionId String
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, institutionId])
+  @@index([institutionId])
+}
+
+model ProjectOutput {
+  projectId String
+  outputId  String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  output  Output  @relation(fields: [outputId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, outputId])
+  @@index([outputId])
+}
+
+model ExperienceMethod {
+  experienceId String
+  methodId     String
+
+  experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  method     Method     @relation(fields: [methodId], references: [id], onDelete: Cascade)
+
+  @@id([experienceId, methodId])
+  @@index([methodId])
+}
+
+model ExperienceCollaborator {
+  experienceId   String
+  collaboratorId String
+
+  experience   Experience   @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  collaborator Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+
+  @@id([experienceId, collaboratorId])
+  @@index([collaboratorId])
+}
+
+model ResearchInterestMethod {
+  researchInterestId String
+  methodId           String
+
+  researchInterest ResearchInterest @relation(fields: [researchInterestId], references: [id], onDelete: Cascade)
+  method           Method           @relation(fields: [methodId], references: [id], onDelete: Cascade)
+
+  @@id([researchInterestId, methodId])
+  @@index([methodId])
+}
+
+model ResearchInterestProject {
+  researchInterestId String
+  projectId          String
+
+  researchInterest ResearchInterest @relation(fields: [researchInterestId], references: [id], onDelete: Cascade)
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([researchInterestId, projectId])
+  @@index([projectId])
+}
