@@ -79,13 +79,13 @@ export function Hero() {
               {/* Photo frame */}
               <div className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-full overflow-hidden border-2 border-[var(--border)] shadow-2xl">
                 <Image
-                  src="/rupak-photo.png"
+                  src="/rupak-profile-new.jpg"
                   alt="Rupak Ghosh"
                   fill
                   priority
                   sizes="(max-width: 640px) 192px, 224px"
-                  className="object-cover object-top"
-                  style={{ objectPosition: "50% 12%" }}
+                  className="object-cover"
+                  style={{ objectPosition: "50% 35%" }}
                 />
               </div>
 
