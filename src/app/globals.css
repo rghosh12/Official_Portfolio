@@ -10,9 +10,6 @@
   --text:      #1a1a18;
   --muted:     #6b6b67;
   --accent:    #1d4ed8;
-
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }
 
 .dark {
@@ -35,22 +32,18 @@ html {
 body {
   background: var(--surface);
   color: var(--text);
-  font-family: var(--font-sans);
   line-height: 1.6;
 }
 
-/* ─── Selection ─────────────────────────────────────────── */
 ::selection {
   background: var(--accent);
   color: #fff;
 }
 
-/* ─── Scrollbar ─────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-/* ─── Focus ─────────────────────────────────────────────── */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
